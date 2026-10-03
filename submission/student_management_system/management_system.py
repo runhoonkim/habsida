@@ -26,7 +26,7 @@ class StudentManagementSystem:
 
         # else, add students and return True
         else:
-            self.students[name] = {"grades": grades}
+            self.students[name] = Student(name, grades)
             return True
 
     def update_grade(self, name: str, subject: str, grade: int) -> bool:
@@ -36,11 +36,11 @@ class StudentManagementSystem:
             return False
 
         # Return false if the subject was not found
-        if subject not in self.students[name]["grades"]:
+        if subject not in self.students[name].grades:
             return False
 
         # else, update the grade and return True
-        self.students[name]["grades"][subject] = grade
+        self.students[name].add_grade(subject, grade)
         return True
 
     def delete_student(self, name: str) -> bool:
@@ -56,65 +56,75 @@ class StudentManagementSystem:
 
     def display_records(self) -> None:
         """Display all student records with their grades and average grades."""
-        # =====================================================
-        # Print all student records
-        # =====================================================
-        print(f"All student records:\n{self.students}\n")
+        if not self.students:
+            print("No student records found.")
+            return
 
-
-        # =====================================================
-        # Define helper function for calculating average grades
-        # =====================================================
-
-        get_avg = lambda x: round(sum(x) / len(x), 1)
-
-        # =====================================================
-        # Print the average grade for each student
-        # =====================================================
-
-        # First get a dictionary of list of grades for each student
-        grades_per_student = {student: list(student_dict["grades"].values()) for student, student_dict in self.students.items()}
-
-        # Get average for each student from a list of grades and round it to the one decimal place
-        avg_per_student = {student: get_avg(grades) for student, grades in grades_per_student.items()}
-
-        print(f"Average grade for each student:\n{avg_per_student}\n")
-
-        # =====================================================
-        # Print the average grade for each subject
-        # =====================================================
-        # Get a list of grades per student first
-        list_of_grades_per_student = [student_dict["grades"] for student_dict in self.students.values()]
 
         # Make a dictionary where keys are subjects and values are lists of grades for each student
         grades_per_subject = {}
-        for grades in list_of_grades_per_student:
-            for subject, grade in grades.items():
+
+        # Display a student's record and their average grades
+        for student in self.students.values():
+            print(f"Name: {student.name}")
+            print(f"Grades: {student.grades}")
+            print(f"Average: {student.get_average_grade():.2f}")
+            print("-" * 30)
+
+            for subject, grade in student.grades.items():
                 if subject not in grades_per_subject:
                     grades_per_subject[subject] = []
                 grades_per_subject[subject].append(grade)
+
+
+
+        # Define helper function for calculating average grades
+        get_avg = lambda x: round(sum(x) / len(x), 1)
 
         # Calculate average for each subject
         avg_per_subject = {subject: get_avg(grades) for subject, grades in grades_per_subject.items()}
 
         print(f"Average grade for each subject:\n{avg_per_subject}")
 
+
+
+
     def save_to_file(self, filename: str = "students.json") -> bool:
         """Save all students to a JSON file."""
         try:
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(self.students, f, indent=4)
+            data = {}
+
+            for student in self.students.values():
+                data.update(student.to_dict())
+
+            with open(filename, "w", encoding="utf-8") as file:
+                json.dump(data, file, indent=4)
+
             return True
 
-        except (TypeError, OverflowError, ValueError, IOError):
-            # Catches JSON serialization errors or file system I/O errors
+        except (OSError, TypeError):
             return False
 
     def load_from_file(self, filename: str = "students.json") -> bool:
         """Load student data from a JSON file."""
         try:
-            with open(filename, 'r', encoding='utf-8') as file:
-                self.students = json.load(file)
-                return True
-        except (FileNotFoundError, json.JSONDecodeError, PermissionError):
+            with open(filename, "r", encoding="utf-8") as file:
+                data = json.load(file)
+
+            self.students = {}
+
+            for student_data in data.values():
+                # Student.from_dict() expects {name: {"grades": ...}}
+                # so we need to pass each student entry back in that format.
+                pass
+
+            for name, student_data in data.items():
+                self.students[name] = Student(
+                    name,
+                    student_data["grades"]
+                )
+
+            return True
+
+        except (OSError, json.JSONDecodeError, KeyError, TypeError):
             return False

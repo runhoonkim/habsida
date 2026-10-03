@@ -16,15 +16,13 @@ class Student:
 
     def add_grade(self, subject: str, grade: int) -> None:
         """Add or update a grade for a specific subject."""
-        if subject not in self.grades:
-            self.grades[subject] = grade
         self.grades[subject] = grade
 
     def get_average_grade(self) -> float:
         """Calculate the average grade for the student."""
         average_grade = sum(self.grades.values()) / len(self.grades.values())
-        
-        return average_grade 
+
+        return average_grade
 
     def to_dict(self) -> Dict[str, any]:
         """Convert the Student instance to a dictionary for JSON serialization."""
