@@ -87,8 +87,6 @@ class StudentManagementSystem:
         print(f"Average grade for each subject:\n{avg_per_subject}")
 
 
-
-
     def save_to_file(self, filename: str = "students.json") -> bool:
         """Save all students to a JSON file."""
         try:
@@ -113,16 +111,12 @@ class StudentManagementSystem:
 
             self.students = {}
 
-            for student_data in data.values():
-                # Student.from_dict() expects {name: {"grades": ...}}
-                # so we need to pass each student entry back in that format.
-                pass
-
             for name, student_data in data.items():
-                self.students[name] = Student(
-                    name,
-                    student_data["grades"]
-                )
+                # Reconstruct the expected dictionary structure: {name: {"grades": ...}}
+                single_student_data = {name: student_data}
+
+                # Use the factory method to create the Student instance
+                self.students[name] = Student.from_dict(single_student_data)
 
             return True
 
