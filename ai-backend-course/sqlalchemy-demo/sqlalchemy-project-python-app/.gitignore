@@ -11,4 +11,6 @@ __pycache__/
 # OS / editor junk
 .DS_Store
 .vscode/
+
+# SQL files in the directory
 *.sql
