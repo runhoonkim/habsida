@@ -83,6 +83,23 @@ def store_report(engine):
         for row in rows:
             print(f"  {row.email:<20}  - {row.total_orders} items")
 
+def low_stock_alert(engine):
+    with engine.connect() as conn:
+        low_stock = conn.execute(text("""
+            SELECT 
+                name, price, stock 
+            FROM products 
+            WHERE stock < 10
+        """))
+
+        rows = low_stock.fetchall()
+        
+        print()
+        print("Items with stock smaller than 10EA:")
+        for row in rows:
+            price = f"${row.price:.2f}"
+            print(f"  {row.name:<23} {price:>10}          (stock {row.stock})")
+
 
 def add_product(engine, name, category, price, stock):
     """INSERT a product and return its new id."""
@@ -162,6 +179,7 @@ def place_order(engine, email, product_name, quantity):
 def main():
     engine = get_engine()
     store_report(engine)
+    low_stock_alert(engine)
     # TODO: a small menu to add a product or place an order
 
     while True:
