@@ -39,16 +39,24 @@ def store_report(engine):
 
         # TODO: SELECT name, price, stock FROM products ORDER BY name
         catalog = conn.execute(text("""
-            SELECT name, price, stock
-            FROM products
-            ORDER BY name
+            SELECT
+                p.name,
+                p.price,
+                p.stock,
+                COALESCE(SUM(o.quantity * p.price), 0) AS total_revenue
+            FROM products p
+            LEFT JOIN orders o
+                ON p.id = o.product_id
+            GROUP BY p.id, p.name, p.price, p.stock
+            ORDER BY p.name;
         """))
 
         rows = catalog.fetchall()
         print("Catalog:")
         for row in rows:
             price = f"${row.price:.2f}"
-            print(f"  {row.name:<23} {price:>10}          (stock {row.stock})")
+            total_revenue = f"${row.total_revenue:.2f}"
+            print(f"  {row.name:<23} {price:>11}          (stock {row.stock:<3})          (total_revenue {total_revenue:>11})")
         print()
 
         # TODO: top 3 customers by SUM(quantity) via a join + GROUP BY
