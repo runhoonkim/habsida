@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-
+from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 
@@ -13,7 +13,20 @@ def get_engine():
     if not url:
         raise ValueError("DATABASE_URL is missing in the .env file.")
 
-    return create_engine(url)
+    try:
+        engine = create_engine(url)
+        with engine.connect():
+            print("Database connection successful.")
+
+        return engine
+
+
+    except SQLAlchemyError as e:
+        raise ConnectionError(
+            f"Could not connect to the database.\n"
+            f"Please check that the database is running and DATABASE_URL is correct.\n"
+            f"Details: {e}"
+        ) from e
 
 
 def store_report(engine):
@@ -137,6 +150,19 @@ def no_order_user(engine):
 
 def add_product(engine, name, category, price, stock):
     """INSERT a product and return its new id."""
+        # Validate values here as well as in the menu.
+    if price <= 0:
+        raise ValueError("Price must be greater than 0.")
+
+    if stock < 0:
+        raise ValueError("Stock cannot be negative.")
+
+    if not name.strip():
+        raise ValueError("Product name cannot be empty.")
+
+    if not category.strip():
+        raise ValueError("Category cannot be empty.")
+
     with engine.begin() as conn:   # begin() commits automatically at the end
         # TODO: INSERT ... RETURNING id, with named parameters (include category)
         added_product = conn.execute(text("""
@@ -149,30 +175,44 @@ def add_product(engine, name, category, price, stock):
 
 def place_order(engine, email, product_name, quantity):
     """Create an order and decrement stock in one transaction."""
+    # Validate quantity before starting the transaction.
+    if quantity <= 0:
+        raise ValueError("Quantity must be greater than 0.")
+    
     with engine.begin() as conn:   # begin() commits on success, rolls back on error
         # TODO: look up user_id by email and product (id + stock) by name
-        info = conn.execute(text("""
-            SELECT
-                (SELECT id FROM users WHERE email = :email) AS user_id,
-                (SELECT id FROM products WHERE name = :product_name) AS product_id,
-                (SELECT stock FROM products WHERE name = :product_name) AS stock
-        """), {"email": email, "product_name": product_name})
+        # Find the user.
+        user = conn.execute(
+            text("""
+                SELECT id
+                FROM users
+                WHERE email = :email
+            """),
+            {"email": email}
+        ).fetchone()
 
-        row = info.fetchone()
-
-        user_id = row.user_id
-        product_id = row.product_id
-        stock = row.stock
-
-        # Additionally raise errors when user_id or product_id is None or quantity is equal to or smaller than 0 to prevent from crashing
-        if user_id is None:
+        if user is None:
             raise ValueError(f"User not found: {email}")
 
-        if product_id is None:
+        # FOR UPDATE locks this product row until the transaction commits or rolls back.
+        product = conn.execute(
+            text("""
+                SELECT
+                    id,
+                    stock
+                FROM products
+                WHERE name = :product_name
+                FOR UPDATE
+            """),
+            {"product_name": product_name}
+        ).fetchone()
+
+        if product is None:
             raise ValueError(f"Product not found: {product_name}")
 
-        if quantity <= 0:
-            raise ValueError("Quantity must be greater than 0.")
+        user_id = user.id
+        product_id = product.id
+        stock = product.stock
 
         # TODO: if stock < quantity, raise an error to trigger rollback
         if stock < quantity:
@@ -193,7 +233,7 @@ def place_order(engine, email, product_name, quantity):
             "quantity": quantity
         })
 
-        # Update product's stock
+        # Decrease product's stock
         conn.execute(text("""
             UPDATE products
             SET stock = stock - :quantity
@@ -210,10 +250,21 @@ def place_order(engine, email, product_name, quantity):
 
 
 def main():
-    engine = get_engine()
-    store_report(engine)
-    low_stock_alert(engine)
-    no_order_user(engine)
+    try:
+        engine = get_engine()
+    except (ValueError, ConnectionError) as e:
+        print(f"Database startup failed: {e}")
+        return
+
+    try:
+        store_report(engine)
+        low_stock_alert(engine)
+        no_order_user(engine)
+
+    except SQLAlchemyError as e:
+        print(f"Failed to load store information: {e}")
+        return
+
     # TODO: a small menu to add a product or place an order
 
     while True:
@@ -222,28 +273,65 @@ def main():
         print("2. Place order")
         print("3. Exit")
 
-        choice = input("Choose an option: ")
+        choice = input("Choose an option: ").strip()
 
         if choice == "1":
-            name = input("Product name: ")
-            category = input("Category: ")
-            price = float(input("Price: "))
-            stock = int(input("Stock: "))
+            name = input("Product name: ").strip()
+            category = input("Category: ").strip()
 
-            product_id = add_product(
-                engine,
-                name,
-                category,
-                price,
-                stock
-            )
+            # Validate price.
+            try:
+                price = float(input("Price: "))
 
-            print(f"Product added with id {product_id}.")
+                if price <= 0:
+                    print("Invalid price. Price must be greater than 0.")
+                    continue
+
+            except ValueError:
+                print("Invalid price. Please enter a number.")
+                continue
+
+            # Validate stock.
+            try:
+                stock = int(input("Stock: "))
+
+                if stock < 0:
+                    print("Invalid stock. Stock cannot be negative.")
+                    continue
+
+            except ValueError:
+                print("Invalid stock. Please enter a whole number.")
+                continue
+
+            try:
+                product_id = add_product(
+                    engine,
+                    name,
+                    category,
+                    price,
+                    stock
+                )
+
+                print(f"Product added with id {product_id}.")
+
+            except (ValueError, SQLAlchemyError) as e:
+                print(f"Product creation failed: {e}")
 
         elif choice == "2":
-            email = input("Customer email: ")
-            product_name = input("Product name: ")
-            quantity = int(input("Quantity: "))
+            email = input("Customer email: ").strip()
+            product_name = input("Product name: ").strip()
+
+            # Validate quantity.
+            try:
+                quantity = int(input("Quantity: "))
+
+                if quantity <= 0:
+                    print("Invalid quantity. Quantity must be greater than 0.")
+                    continue
+
+            except ValueError:
+                print("Invalid quantity. Please enter a whole number.")
+                continue
 
             try:
                 place_order(
@@ -252,7 +340,8 @@ def main():
                     product_name,
                     quantity
                 )
-            except ValueError as e:
+
+            except (ValueError, SQLAlchemyError) as e:
                 print(f"Order failed: {e}")
 
         elif choice == "3":
