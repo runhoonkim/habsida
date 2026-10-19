@@ -108,6 +108,32 @@ def low_stock_alert(engine):
             price = f"${row.price:.2f}"
             print(f"  {row.name:<23} {price:>10}          (stock {row.stock})")
 
+def no_order_user(engine):
+    with engine.connect() as conn:
+        no_order_users = conn.execute(text("""
+            SELECT 
+                u.email, 
+                u.full_name,
+                u.role
+
+            FROM users u
+
+            LEFT OUTER JOIN orders o 
+                ON u.id = o.user_id
+
+            WHERE o.id IS NULL
+        """))
+
+        rows = no_order_users.fetchall()
+        if rows:
+            print()
+            print("Never ordered users:")
+            for row in rows:
+                print(f"  {row.email:<20}  {row.full_name:<20}  {row.role:<6}")
+        else:
+            print()
+            print("Never ordered users:")
+            print("  No users have been found who never placed an order.")
 
 def add_product(engine, name, category, price, stock):
     """INSERT a product and return its new id."""
@@ -120,7 +146,6 @@ def add_product(engine, name, category, price, stock):
         """), {"name": name, "category": category, "price": price, "stock": stock})
 
         return added_product.fetchone().id
-
 
 def place_order(engine, email, product_name, quantity):
     """Create an order and decrement stock in one transaction."""
@@ -188,6 +213,7 @@ def main():
     engine = get_engine()
     store_report(engine)
     low_stock_alert(engine)
+    no_order_user(engine)
     # TODO: a small menu to add a product or place an order
 
     while True:
