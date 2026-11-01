@@ -1,0 +1,14 @@
+# Virtual environments
+.venv
+venv
+
+# cahce files
+__pycache__/
+*.pyc
+
+# env, secret files
+.env
+
+# OS / editor junk
+.DS_store
+.vscode/
