@@ -109,7 +109,11 @@ def get_order(
 
 
 @app.patch("/orders/{order_id}", response_model=OrderOut)
-def update_order(order_id: int, payload: OrderUpdate, db: Session=Depends(get_db)):
+def update_order(
+    order_id: int, 
+    payload: OrderUpdate, 
+    db: Session=Depends(get_db)
+):
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Order not found")

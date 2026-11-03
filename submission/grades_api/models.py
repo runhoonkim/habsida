@@ -131,11 +131,16 @@ class Grade(Base):
         primary_key=True,
     )
     student_id: Mapped[int] = mapped_column(
-        ForeignKey("students.student_id"),
+        ForeignKey(
+            "students.student_id", 
+            ondelete="CASCADE"
+        ),
         nullable=False,
     )
     course_id: Mapped[int] = mapped_column(
-        ForeignKey("courses.course_id"),
+        ForeignKey(
+            "courses.course_id",
+        ),
         nullable=False,
     )
     grade: Mapped[Decimal] = mapped_column(
