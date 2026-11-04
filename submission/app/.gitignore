@@ -8,3 +8,6 @@ venv/
 # caches
 __pycache__/
 *.pyc/
+
+# OS / editor junk
+.DS_Store

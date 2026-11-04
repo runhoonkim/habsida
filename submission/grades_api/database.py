@@ -16,22 +16,22 @@ SessionLocal = sessionmaker(
     bind=engine, 
 )
 
-# Create a base class for your SQLAlchemy database models
+# Create a base class for SQLAlchemy database models
 Base = declarative_base()
 
-# Define get_db()
+# Provide a database session to FastAPI endpoints and close it during cleanup.
 def get_db() -> Generator[Session, None, None]:
     """
     Yield a database session and close it during dependency cleanup.
 
     Used as a FastAPI dependency via Depends(get_db). The session is
-    closed even if request handling raises an exception. 
+    closed even if request handling raises an exception.
 
     Yields:
         Session: A SQLAlchemy session for database operations.
     """
-    db = SessionLocal()
+    db = SessionLocal()  # Create a session.
     try:
-        yield db
+        yield db  # Supply the session to the endpoint and pause.
     finally:
-        db.close()
+        db.close()  # Release session resources during cleanup.
