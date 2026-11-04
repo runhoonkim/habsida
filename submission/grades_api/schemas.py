@@ -63,3 +63,22 @@ class GradeOut(BaseModel):
     student_id: int
     course_id: int
     grade: float
+
+# =====================================================
+# Define pydantic models for average reports
+# =====================================================
+class StudentAverageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    student_id: int
+    full_name: str
+    average_grade: float | None
+    courses_taken: int
+
+class CourseAverageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    course_id: int
+    course_name: str
+    average_grade: float | None
+    students_graded: int

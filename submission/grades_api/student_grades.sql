@@ -159,5 +159,5 @@ DELETE FROM students
 WHERE student_id = 1;
 
 -- check data in the table `students` after deletion
-SELECT * FROM students;
+-- SELECT * FROM students;
 

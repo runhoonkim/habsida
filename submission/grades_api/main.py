@@ -4,8 +4,10 @@ from models import Student, Course, Grade
 from schemas import (
     StudentCreate, StudentUpdate, StudentOut,    
     CourseCreate, CourseUpdate, CourseOut,
-    GradeCreate, GradeUpdate, GradeOut
+    GradeCreate, GradeUpdate, GradeOut,
+    StudentAverageOut, CourseAverageOut
 )
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 app = FastAPI(title="Grades API")
@@ -198,14 +200,14 @@ def update_course(
             detail="Course not found."
         )
 
+    changes = payload.model_dump(exclude_unset=True)
+
     for field, value in changes.items():
         if value is None:
             raise HTTPException(
                 status_code=422,
                 detail=f"{field} cannot be null.",
             )
-
-    changes = payload.model_dump(exclude_unset=True)
 
     for field, value in changes.items():
         setattr(course, field, value)
@@ -229,6 +231,17 @@ def delete_course(
             detail="Course not found."
         )
     
+    existing_grade = (
+        db.query(Grade)
+        .filter(Grade.course_id == course_id)
+        .first()
+    )
+
+    if existing_grade is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete a course that has grades.",
+        )
     db.delete(course)
     db.commit()
 
@@ -239,6 +252,146 @@ def delete_course(
 # ===============
 @app.post("/grades", response_model=GradeOut, status_code=201)
 def create_grade(
-    
+    payload: GradeCreate,
+    db: Session = Depends(get_db),
 ):
-    pass
+    # check if student exists
+    student = db.get(Student, payload.student_id)
+    if student is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Student not found."
+        )
+    # check if course exists
+    course = db.get(Course, payload.course_id)
+    if course is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Course not found."
+        )
+    # check if the student already has a grade in the course
+    exist_grade = (
+        db.query(Grade)
+        .filter(
+            (Grade.student_id == payload.student_id),
+            (Grade.course_id == payload.course_id)
+        )
+        .first()
+    )
+
+    if exist_grade is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="The student already has a grade in this course.",
+        )
+
+    # create grade
+    grade = Grade(**payload.model_dump())
+    db.add(grade)
+    db.commit()
+    db.refresh(grade)
+
+    return grade
+
+@app.get("/students/{student_id}/grades", response_model=list[GradeOut])
+def list_grades(
+    student_id: int,
+    db: Session = Depends(get_db),
+):
+    # check if student exists
+    student = db.get(Student, student_id)
+
+    if student is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Student not found.",
+        )
+    
+    # show all grades of the student
+    return (
+        db.query(Grade)
+        .filter(Grade.student_id == student_id)
+        .order_by(Grade.grade_id)
+        .all()
+    )
+
+@app.patch("/grades/{grade_id}", response_model=GradeOut)
+def update_grade(
+    grade_id: int,
+    payload: GradeUpdate,
+    db: Session = Depends(get_db),
+):
+    grade = db.get(Grade, grade_id)
+
+    if grade is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Grade not found.",
+        )
+
+    changes = payload.model_dump(exclude_unset=True)
+
+    if "grade" in changes and changes["grade"] is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Grade cannot be null.",
+        )
+
+    for field, value in changes.items():
+        setattr(grade, field, value)
+
+    db.commit()
+    db.refresh(grade)
+
+    return grade
+
+@app.delete("/grades/{grade_id}", status_code=204)
+def delete_grade(
+    grade_id: int,
+    db: Session = Depends(get_db),
+):
+    grade = db.get(Grade, grade_id)
+    if grade is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Grade not found.",
+        )
+
+    db.delete(grade)
+    db.commit()
+
+    return Response(status_code=204)
+
+@app.get("/reports/student-averages", response_model=list[StudentAverageOut])
+def get_student_averages(
+    db: Session = Depends(get_db)
+):
+    return (
+        db.query(
+            Student.student_id,
+            Student.full_name,
+            func.round(func.avg(Grade.grade), 2).label("average_grade"),
+            func.count(Grade.grade_id).label("courses_taken"),
+        )
+        .join(Grade, Grade.student_id == Student.student_id)
+        .group_by(Student.student_id, Student.full_name)
+        .order_by(Student.student_id)
+        .all()
+    )
+
+@app.get("/reports/course-averages", response_model=list[CourseAverageOut])
+def get_course_averages(
+    db: Session = Depends(get_db)
+):
+    return (
+        db.query(
+            Course.course_id,
+            Course.course_name,
+            func.round(func.avg(Grade.grade), 2).label("average_grade"),
+            func.count(Grade.grade_id).label("students_graded"),
+        )
+        .join(Grade, Grade.course_id == Course.course_id)
+        .group_by(Course.course_id, Course.course_name)
+        .order_by(Course.course_id)
+        .all()
+    )
