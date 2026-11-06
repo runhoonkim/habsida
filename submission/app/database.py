@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from collections.abc import Generator
 
 # Load .env file and get database_url
 load_dotenv()
@@ -18,4 +19,22 @@ SessionLocal = sessionmaker(
 # Create a base class for SQLAlchemy database models
 Base = declarative_base()
 
-# Define get_db() 
+# Provide a database session to FastAPI endpoints and close it during cleanup
+def get_db() -> Generator[Session, None, None]:
+    """
+    Yield a database session and close it during dependency cleanup.
+
+    Used as a FastAPI dependency via Depends(get_db).
+    The session is cloed een if request handling raises an exception.
+
+    Yields:
+        Session: A SQLAlchemy session for database operations.
+    """
+    db = SessionLocal() # Create a session
+
+    try: 
+        yield db        # Supply the session to the endpoint and pause
+    
+    finally:
+        db.close()      # Release session resources during cleanup.
+    
