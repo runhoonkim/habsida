@@ -22,6 +22,20 @@ class UserOut(BaseModel):
     created_at: datetime
 
 # =====================================================
+# Define pydantic models for Product ORM model
+# =====================================================
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    category: str
+    description: str | None
+    price: float
+    stock: int
+    created_at: datetime
+
+# =====================================================
 # Define pydantic models for Order ORM model
 # =====================================================
 
