@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 from database import get_db
 from models import Student, Course, Grade
 from schemas import (
@@ -8,9 +8,42 @@ from schemas import (
     StudentAverageOut, CourseAverageOut
 )
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 app = FastAPI(title="Grades API")
+
+def commit_or_raise(db: Session = Depends(get_db)):
+    """
+    Raise a HTTPException error before commit if a conflict exists.
+    """
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+
+        # exc                          SQLAlchemy IntegrityError
+        # └── orig                     Original PostgreSQL driver exception
+        #     └── diag                 Diagnostic information
+        #         └── constraint_name  Name of the violated constraint
+        
+        diag = getattr(exc.orig, "diag", None)
+        constraint_name = getattr(diag, "constraint_name", None)
+
+        messages = {
+            "students_email_key": "Email already exists.",
+            "uq_courses_course_name": "Course name already exists.",
+            "grades_student_id_course_id_key": "The student already has a grade in this course.",
+        }
+
+        if constraint_name in messages:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=messages[constraint_name],
+            ) from exc
+
+        raise  # propagate any unrecognized integrity error.
+
 
 # ===============
 # Students CRUD
@@ -19,23 +52,12 @@ app = FastAPI(title="Grades API")
 def create_student(
     payload:StudentCreate, 
     db: Session=Depends(get_db)
-):
-    # check if email already exists
-    existing_email = (
-        db.query(Student)
-        .filter(Student.email == payload.email)
-        .first()
-    )
-
-    if existing_email is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="Email already exists.",
-        )
-    
+):    
     student = Student(**payload.model_dump())
     db.add(student)
-    db.commit()
+
+    commit_or_raise(db)
+
     db.refresh(student)     # Reload server-generated fields like id and enrollment_Date
     return student
 
@@ -92,36 +114,20 @@ def update_student(
 
     # These database columns cannot be NULL.
     for field in ("full_name", "email"):
+        # reject explicit null values
         if field in changes and changes[field] is None:
             raise HTTPException(
                 status_code=422,
                 detail=f"{field} cannot be null.",
             )
 
-    # Check only a supplied email, excluding this student's own row.
-    if "email" in changes:
-        existing_student = (
-            db.query(Student)
-            .filter(
-                Student.email == changes["email"],
-                Student.student_id != student_id,
-            )
-            .first()
-        )
-
-        if existing_student is not None:
-            raise HTTPException(
-                status_code=409,
-                detail="Email already exists.",
-            )
-
-    # Update student
+    # update student
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(student, field, value)
 
-    db.commit()
+    commit_or_raise(db)
+    
     db.refresh(student)
-
     return student
 
 @app.delete("/students/{student_id}", status_code=204)
@@ -153,9 +159,10 @@ def create_course(
 ):
     course = Course(**payload.model_dump())
     db.add(course)
-    db.commit()
-    db.refresh(course)
 
+    commit_or_raise(db)
+    
+    db.refresh(course)
     return course
 
 @app.get("/courses", response_model=list[CourseOut])
@@ -202,6 +209,7 @@ def update_course(
 
     changes = payload.model_dump(exclude_unset=True)
 
+    # reject explicit null values
     for field, value in changes.items():
         if value is None:
             raise HTTPException(
@@ -209,12 +217,13 @@ def update_course(
                 detail=f"{field} cannot be null.",
             )
 
+    # update course
     for field, value in changes.items():
         setattr(course, field, value)
 
-    db.commit()
-    db.refresh(course)
+    commit_or_raise(db)
 
+    db.refresh(course)
     return course
 
 
@@ -269,28 +278,14 @@ def create_grade(
             status_code=400,
             detail="Course not found."
         )
-    # check if the student already has a grade in the course
-    exist_grade = (
-        db.query(Grade)
-        .filter(
-            (Grade.student_id == payload.student_id),
-            (Grade.course_id == payload.course_id)
-        )
-        .first()
-    )
-
-    if exist_grade is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="The student already has a grade in this course.",
-        )
 
     # create grade
     grade = Grade(**payload.model_dump())
     db.add(grade)
-    db.commit()
-    db.refresh(grade)
 
+    commit_or_raise(db)
+    
+    db.refresh(grade)
     return grade
 
 @app.get("/students/{student_id}/grades", response_model=list[GradeOut])
@@ -331,6 +326,7 @@ def update_grade(
 
     changes = payload.model_dump(exclude_unset=True)
 
+    # reject explicit null
     if "grade" in changes and changes["grade"] is None:
         raise HTTPException(
             status_code=422,

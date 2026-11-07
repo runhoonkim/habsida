@@ -41,6 +41,13 @@ Add constraints inline when you write the column (credits INTEGER NOT NULL CHECK
 or as a separate line at the end of the CREATE TABLE (UNIQUE (student_id, course_id)) — both are valid, pick whichever reads clearer to you.
 */
 
+BEGIN;
+
+-- Drop dependent tables first.
+DROP TABLE IF EXISTS grades;
+DROP TABLE IF EXISTS courses;
+DROP TABLE IF EXISTS students;
+
 -- Create a table students then check the result
 CREATE TABLE students (
     student_id SERIAL,
@@ -63,6 +70,10 @@ CREATE TABLE courses (
 
     PRIMARY KEY (course_id)
 );
+
+-- Add UNIQUE (course_name) to the table courses
+ALTER TABLE courses
+ADD CONSTRAINT uq_courses_course_name UNIQUE (course_name);
 
 -- SELECT * FROM courses;
 
@@ -92,9 +103,9 @@ In your script, after the three CREATE TABLE statements:
 
 -- Populate the table courses and check the result
 INSERT INTO courses (course_name, instructor_name, credits) VALUES
-    ('Databases', 'Alice Johnson', 3),
-    ('Statistics', 'Bob Williams', 3),
-    ('Algorithms', 'Charlie Brown', 3);
+    ('Astronomy', 'Alice Johnson', 3),
+    ('Ecology', 'Bob Williams', 3),
+    ('Creative Writing', 'Charlie Brown', 3);
 
 -- SELECT * FROM courses;
 

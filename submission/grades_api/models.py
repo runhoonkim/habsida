@@ -78,6 +78,13 @@ CREATE TABLE courses (
 class Course(Base):
     __tablename__ = "courses"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "course_name",
+            name="uq_courses_course_name",
+        ),
+    )
+
     course_id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
