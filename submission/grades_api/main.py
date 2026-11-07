@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 from database import get_db
 from models import Student, Course, Grade
 from schemas import (
@@ -151,6 +151,19 @@ def create_course(
     payload: CourseCreate,
     db: Session = Depends(get_db),
 ):
+    # check for duplicate course name
+    existing_course = (
+        db.query(Course)
+        .filter(Course.course_name == payload.course_name)
+        .first()
+    )
+
+    if existing_course is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Course name alerady exists."
+        )
+    
     course = Course(**payload.model_dump())
     db.add(course)
     db.commit()
@@ -201,14 +214,34 @@ def update_course(
         )
 
     changes = payload.model_dump(exclude_unset=True)
+    # check for duplicate course names
+    if "course_name" in changes:
+        existing_course = (
+            db.query(Course)
+            .filter(
+                Course.course_name == payload.course_name,
+                Course.course_id != course_id, # exclude this course's own row
+            )
+            .first()
+        )
 
+        if existing_course is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Course name already exists."
+            )
+
+    
+    # reject explicit null values
     for field, value in changes.items():
+        
         if value is None:
             raise HTTPException(
                 status_code=422,
                 detail=f"{field} cannot be null.",
             )
 
+    # update course
     for field, value in changes.items():
         setattr(course, field, value)
 
