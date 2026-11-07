@@ -43,6 +43,9 @@ or as a separate line at the end of the CREATE TABLE (UNIQUE (student_id, course
 
 BEGIN;
 
+-- Set the database’s default time zone to Korea to correct AssertionError
+ALTER DATABASE school SET timezone TO 'Asia/Seoul';
+
 -- Drop dependent tables first.
 DROP TABLE IF EXISTS grades;
 DROP TABLE IF EXISTS courses;
@@ -171,4 +174,3 @@ WHERE student_id = 1;
 
 -- check data in the table `students` after deletion
 -- SELECT * FROM students;
-
