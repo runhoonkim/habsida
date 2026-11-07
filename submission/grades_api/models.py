@@ -82,7 +82,7 @@ class Course(Base):
         UniqueConstraint(
             "course_name",
             name="uq_courses_course_name",
-        )
+        ),
     )
 
     course_id: Mapped[int] = mapped_column(
