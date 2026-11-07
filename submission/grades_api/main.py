@@ -5,6 +5,7 @@ from schemas import (
     StudentCreate, StudentUpdate, StudentOut,    
     CourseCreate, CourseUpdate, CourseOut,
     GradeCreate, GradeUpdate, GradeOut,
+    StudentGradeOut,
     StudentAverageOut, CourseAverageOut
 )
 from sqlalchemy import func
@@ -288,7 +289,7 @@ def create_grade(
     db.refresh(grade)
     return grade
 
-@app.get("/students/{student_id}/grades", response_model=list[GradeOut])
+@app.get("/students/{student_id}/grades", response_model=list[StudentGradeOut])
 def list_grades(
     student_id: int,
     db: Session = Depends(get_db),
@@ -304,7 +305,14 @@ def list_grades(
     
     # show all grades of the student
     return (
-        db.query(Grade)
+        db.query(
+            Grade.grade_id,
+            Grade.student_id,
+            Grade.course_id,
+            Grade.grade,
+            Course.course_name,
+        )
+        .join(Course, Grade.course_id == Course.course_id)
         .filter(Grade.student_id == student_id)
         .order_by(Grade.grade_id)
         .all()
