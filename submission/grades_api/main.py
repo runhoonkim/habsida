@@ -161,7 +161,7 @@ def create_course(
     if existing_course is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Course name alerady exists."
+            detail="Course name already exists."
         )
     
     course = Course(**payload.model_dump())
