@@ -64,6 +64,9 @@ class GradeOut(BaseModel):
     course_id: int
     grade: float
 
+class StudentGradeOut(GradeOut):
+    course_name: str
+
 # =====================================================
 # Define pydantic models for average reports
 # =====================================================
