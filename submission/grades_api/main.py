@@ -440,20 +440,44 @@ def delete_grade(
 # ============================================================
 @app.get("/reports/student-averages", response_model=list[StudentAverageOut])
 def get_student_averages(
+    min_average: float | None = Query(None, ge=0, le=100),
     db: Session = Depends(get_db)
 ):
-    return (
+    """
+    Return average grades and course counts for students with grades.
+
+    Args:
+        min_average: Optional minimum average value between 0 and 100.
+        db: Database session supplied by FastAPI's dependency injection
+
+    Returns:
+        Student summaries ordered by student_id, containing student_id,
+        full_name, average_grade rounded to two decimal places, and
+        courses_taken. Students without grades are excluded.
+    """
+    average = func.avg(Grade.grade)
+    
+    query = (
         db.query(
             Student.student_id,
             Student.full_name,
-            func.round(func.avg(Grade.grade), 2).label("average_grade"),
+            func.round(average, 2).label("average_grade"),
             func.count(Grade.grade_id).label("courses_taken"),
         )
         .join(Grade, Grade.student_id == Student.student_id)
         .group_by(Student.student_id, Student.full_name)
+    )
+
+    # filter by min_average if given
+    if min_average is not None:
+        query = query.having(average >= min_average)
+
+    return (
+        query
         .order_by(Student.student_id)
         .all()
     )
+
 
 @app.get("/reports/course-averages", response_model=list[CourseAverageOut])
 def get_course_averages(
