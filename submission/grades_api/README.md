@@ -21,8 +21,8 @@ docker start pg
 Create a dedicated database and load the schema and sample data:
 
 ```bash
-docker exec pg psql -U postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE school;"
-docker exec -i pg psql -U postgres -d school -v ON_ERROR_STOP=1 < student_grades.sql
+docker exec pg psql -U postgres -c "CREATE DATABASE school"
+docker exec -i pg psql -U postgres -d school < student_grades.sql
 ```
 
 If `school` already exists, skip the creation command. Load the script once into a fresh database; rerunning it may produce duplicate-table or duplicate-data errors. Any UPDATE and DELETE statements in the script also run during import.
