@@ -15,13 +15,14 @@ from models import User, Product, Order
 from schemas import (
     UserCreate,
     UserOut,
+    ProductOut,
     OrderCreate,
     OrderUpdate,
     OrderStatus,
     OrderOut
 )
 
-app = FastAPI(title="App API")
+app = FastAPI(title="Orders API")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def get_current_user(
@@ -84,6 +85,9 @@ def require_admin(
 
     return current_user
 
+# ====================================================
+# Authentication
+# ====================================================
 @app.post("/register", response_model=UserOut, status_code=201)
 def register(
     payload: UserCreate,
@@ -165,6 +169,9 @@ def read_me(
 ):
     return current_user
 
+# ====================================================
+# Orders CRUD 
+# ====================================================
 @app.post("/orders", response_model=OrderOut, status_code=201)
 def create_order(
     payload: OrderCreate,
@@ -314,3 +321,36 @@ def delete_order(
     db.commit()
 
     return Response(status_code=204)
+
+# ====================================================
+# Read-Only Reference Data 
+# ====================================================
+@app.get("/products", response_model=list[ProductOut])
+def list_products(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Product)
+        .order_by(Product.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+@app.get("/products/{id}", response_model=ProductOut)
+def get_product(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = db.get(Product, id)
+    # check if product exists
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found."
+        )
+    return product
