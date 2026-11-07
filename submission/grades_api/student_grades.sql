@@ -64,6 +64,10 @@ CREATE TABLE courses (
     PRIMARY KEY (course_id)
 );
 
+-- Add UNIQUE (course_name) to the table courses
+ALTER TABLE courses
+ADD CONSTRAINT uq_courses_course_name UNIQUE (course_name);
+
 -- SELECT * FROM courses;
 
 -- Create a table grades then check the result
