@@ -53,6 +53,10 @@ class GradeCreate(BaseModel):
     course_id: int
     grade: float = Field(ge=0, le=100)
 
+class BulkGradeCreate(BaseModel):
+    course_id: int
+    grade: float = Field(ge=0, le=100)
+
 class GradeUpdate(BaseModel):
     grade: float | None = Field(default=None, ge=0, le=100)
 
