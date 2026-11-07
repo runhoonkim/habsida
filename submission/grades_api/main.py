@@ -5,6 +5,7 @@ from schemas import (
     StudentCreate, StudentUpdate, StudentOut,    
     CourseCreate, CourseUpdate, CourseOut,
     GradeCreate, GradeUpdate, GradeOut,
+    BulkGradeCreate,
     StudentGradeOut,
     StudentAverageOut, CourseAverageOut
 )
@@ -46,9 +47,9 @@ def commit_or_raise(db: Session = Depends(get_db)):
         raise  # propagate any unrecognized integrity error.
 
 
-# ===============
+# ============================================================
 # Students CRUD
-# ===============
+# ============================================================
 @app.post("/students", response_model=StudentOut, status_code=201)
 def create_student(
     payload:StudentCreate, 
@@ -150,9 +151,9 @@ def delete_student(
 
     return Response(status_code=204)
 
-# ===============
+# ============================================================
 # Courses CRUD
-# ===============
+# ============================================================
 @app.post("/courses", response_model=CourseOut, status_code=201)
 def create_course(
     payload: CourseCreate,
@@ -257,9 +258,9 @@ def delete_course(
 
     return Response(status_code=204)
 
-# ===============
+# ============================================================
 # Grades CRUD
-# ===============
+# ============================================================
 @app.post("/grades", response_model=GradeOut, status_code=201)
 def create_grade(
     payload: GradeCreate,
@@ -288,6 +289,74 @@ def create_grade(
     
     db.refresh(grade)
     return grade
+
+# Bulk create
+@app.post(
+    "/students/{student_id}/grades", 
+    response_model=list[GradeOut],
+    status_code=201,
+)
+def create_student_grades(
+    student_id: int,
+    payload: list[BulkGradeCreate],
+    db: Session = Depends(get_db),
+): 
+    # check if student exists
+    student = db.get(Student, student_id)
+    if student is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student not found."
+        )
+    # reject an empty list
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="At least one grade must be provided.",
+        )
+
+    # reject repeated course IDs within the request
+    course_ids = [item.course_id for item in payload]
+    if len(course_ids) != len(set(course_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Each course_id must appear only once in the request."
+        )
+
+    # check if every course exists
+    existing_courses = (
+        db.query(Course)
+        .filter(Course.course_id.in_(course_ids))
+        .all()
+    )
+
+    existing_ids = [course.course_id for course in existing_courses]
+    missing_ids = set(course_ids) - existing_ids
+    if not missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course(s) not found."
+        )
+
+    # create grades
+    grades = [
+        Grade(
+            student_id=student_id,
+            course_id=item.course_id,
+            grade=item.grade,
+        )
+        for item in payload
+    ]
+
+    db.add_all(grades)
+    commit_or_raise(db)
+
+    for grade in grades:
+        db.refresh(grade)
+
+    return grades
+
+
 
 @app.get("/students/{student_id}/grades", response_model=list[StudentGradeOut])
 def list_grades(
@@ -366,6 +435,9 @@ def delete_grade(
 
     return Response(status_code=204)
 
+# ============================================================
+# Reports
+# ============================================================
 @app.get("/reports/student-averages", response_model=list[StudentAverageOut])
 def get_student_averages(
     db: Session = Depends(get_db)
