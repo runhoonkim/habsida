@@ -1,6 +1,6 @@
 # Virtual environments
-.venv
-venv
+.venv/
+.venv-backup/
 
 # cahce files
 __pycache__/
