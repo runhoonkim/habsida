@@ -25,7 +25,6 @@ docker exec pg psql -U postgres -c "CREATE DATABASE school"
 docker exec -i pg psql -U postgres -d school < student_grades.sql
 ```
 
-If `school` already exists, skip the creation command. Load the script once into a fresh database; rerunning it may produce duplicate-table or duplicate-data errors. Any UPDATE and DELETE statements in the script also run during import.
 
 Confirm the tables were created:
 
