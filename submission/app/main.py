@@ -23,67 +23,9 @@ from schemas import (
 )
 
 app = FastAPI(title="Orders API")
+# oauth2_scheme extracts the token from an incoming request 
+# it reads the Authorization header and returns the token portion as a string
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> User: 
-    """
-    Validate a bearer token and retrieve the authenticated user.
-
-    Args:
-        token: Access token extracted from the Authorization header
-            by oauth2_scheme.
-        db: Database session supplied by the get_db dependency.
-
-    Returns:
-        The User object identified by the validated token.
-
-    Raises:
-        HTTPException: With status 401 if the token is invalid or
-            expired, or the associated user no longer exists.
-    """
-    user_id = decode_access_token(token)
-    # check if user_id exists
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token."
-        )
-
-    user = db.get(User, user_id)
-    # check if user exists
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User no longer exists."
-        )
-
-    return user
-
-def require_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """
-    Check if the role of user is admin.
-
-    Args: 
-        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
-    
-    Returns:
-        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
-
-    Raises:
-        HTTPException: With status 403 if the user is not admin.
-    """
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required."
-        )
-
-    return current_user
 
 # ====================================================
 # Authentication
@@ -162,6 +104,66 @@ def login(
         "access_token": token,
         "token_type": "bearer",
     }
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme), # validates token
+    db: Session = Depends(get_db),
+) -> User: 
+    """
+    Validate a bearer token and retrieve the authenticated user.
+
+    Args:
+        token: Access token extracted from the Authorization header
+            by oauth2_scheme.
+        db: Database session supplied by the get_db dependency.
+
+    Returns:
+        The User object identified by the validated token.
+
+    Raises:
+        HTTPException: With status 401 if the token is invalid or
+            expired, or the associated user no longer exists.
+    """
+    user_id = decode_access_token(token)
+    # check if user_id exists
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token."
+        )
+
+    user = db.get(User, user_id)
+    # check if user exists
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists."
+        )
+
+    return user
+
+def require_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Check if the role of user is admin.
+
+    Args: 
+        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
+    
+    Returns:
+        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
+
+    Raises:
+        HTTPException: With status 403 if the user is not admin.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required."
+        )
+
+    return current_user
 
 @app.get("/me", response_model=UserOut)
 def read_me(
