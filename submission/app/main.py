@@ -8,18 +8,17 @@ from auth import (
     hash_password,
     verify_password, 
     create_access_token,
-    decode_access_token
+    decode_access_token,
+    create_refresh_token,
+    decode_refresh_token
 )
 from database import get_db
 from models import User, Product, Order
 from schemas import (
-    UserCreate,
-    UserOut,
+    TokenPairOut, AccessTokenOut, RefreshTokenRequest,
+    UserCreate, UserOut,
     ProductOut,
-    OrderCreate,
-    OrderUpdate,
-    OrderStatus,
-    OrderOut
+    OrderCreate, OrderUpdate, OrderStatus, OrderOut
 )
 
 app = FastAPI(title="Orders API")
@@ -62,27 +61,23 @@ def register(
 
     return user
 
-@app.post("/token")
+@app.post("/token", response_model=TokenPairOut)
 def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
     """
-    Authenticate a user and issue a JWT access token.
+    Authenticate a user and issue access and refresh tokens.
 
     Credentials must be submitted as form data, using the OAuth2
     "username" field for the user's email address.
 
-    Args:
-        form: Login form containing the email and plaintext password.
-        db: Database session supplied by the get_db dependency.
-
     Returns:
-        A dictionary containing the access token and its bearer type.
+        Short-lived access token, long-lived refresh token,
+        and bearer token type.
 
     Raises:
-        HTTPException: If the user does not exist or the password is
-            incorrect, with HTTP status 401.
+        HTTPException: With status 401 if credentials are incorrect.
     """
     user = (
         db.query(User)
@@ -97,16 +92,40 @@ def login(
             detail="Incorrect email or password",
         )
 
-    # create a token
-    token = create_access_token(user.id)
 
     return {
-        "access_token": token,
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
+    }
+
+@app.post("/refresh", response_model=AccessTokenOut)
+def refresh_access_token(
+    payload: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    user_id = decode_refresh_token(payload.refresh_token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
+        )
+
+    user = db.get(User, user_id)
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User no longer exists."
+        )
+
+    return {
+        "access_token": create_access_token(user.id),
         "token_type": "bearer",
     }
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), # validates token
+    token: str = Depends(oauth2_scheme), # extract the bearer token
     db: Session = Depends(get_db),
 ) -> User: 
     """
@@ -142,29 +161,6 @@ def get_current_user(
 
     return user
 
-def require_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """
-    Check if the role of user is admin.
-
-    Args: 
-        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
-    
-    Returns:
-        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
-
-    Raises:
-        HTTPException: With status 403 if the user is not admin.
-    """
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required."
-        )
-
-    return current_user
-
 @app.get("/me", response_model=UserOut)
 def read_me(
     current_user: User = Depends(get_current_user),
@@ -174,6 +170,23 @@ def read_me(
 # ====================================================
 # Orders CRUD 
 # ====================================================
+def orders_with_total(db: Session = Depends(get_db)):
+    """
+    Add total column to the Order, calculated from a joined Product
+    """
+    return (
+        db.query(
+            Order.id,
+            Order.user_id,
+            Order.product_id,
+            Order.quantity,
+            Order.status,
+            Order.created_at,
+            (Order.quantity * Product.price).label("total")
+        )
+        .join(Product, Order.product_id == Product.id)
+    )
+
 @app.post("/orders", response_model=OrderOut, status_code=201)
 def create_order(
     payload: OrderCreate,
@@ -199,7 +212,11 @@ def create_order(
     db.commit()
     db.refresh(order)
 
-    return order
+    return (
+        orders_with_total(db)
+        .filter(Order.id == order.id)
+        .one()
+    )
 
 @app.get("/orders", response_model=list[OrderOut])
 def list_orders(
@@ -213,7 +230,7 @@ def list_orders(
     """
     Get list of orders of the user, if user is admin then all orders.
     """
-    query = db.query(Order)
+    query = orders_with_total(db)
 
     # Non-admin users can only see their orders
     if current_user.role != "admin":
@@ -258,7 +275,11 @@ def get_order(
             detail="Only admin can view the order of another user."
         )
 
-    return order
+    return (
+        orders_with_total(db)
+        .filter(Order.id == order.id)
+        .one()      # guarantees data integrity
+    )
 
 @app.patch("/orders/{id}", response_model=OrderOut)
 def update_order(
@@ -302,7 +323,34 @@ def update_order(
     db.commit()
     db.refresh(order)
 
-    return order
+    return (
+        orders_with_total(db)
+        .filter(Order.id == order.id)
+        .one()      # guarantees data integrity
+    )
+
+def require_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Check if the role of user is admin.
+
+    Args: 
+        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
+    
+    Returns:
+        current_user: SQLAlchemy ORM model User supplied by get_current_user dependency.
+
+    Raises:
+        HTTPException: With status 403 if the user is not admin.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required."
+        )
+
+    return current_user
 
 @app.delete("/orders/{id}", status_code=204)
 def delete_order(
