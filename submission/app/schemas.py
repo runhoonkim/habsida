@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from enum import Enum
+from decimal import Decimal
 
 # =====================================================
 # Define pydantic models for token
@@ -80,3 +81,5 @@ class OrderOut(BaseModel):
     quantity: int
     status: OrderStatus
     created_at: datetime
+
+    total: Decimal # total is calculated from Product
