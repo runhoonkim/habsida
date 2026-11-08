@@ -3,6 +3,21 @@ from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from enum import Enum
 
 # =====================================================
+# Define pydantic models for token
+# =====================================================
+class TokenPairOut(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class AccessTokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+# =====================================================
 # Define pydantic models for User ORM model
 # =====================================================
 
