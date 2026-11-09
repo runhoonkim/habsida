@@ -576,12 +576,13 @@ def create_student_grades(
         .all()
     )
 
-    existing_ids = [course.course_id for course in existing_courses]
+    existing_ids = {course.course_id for course in existing_courses}
     missing_ids = set(course_ids) - existing_ids
-    if not missing_ids:
+
+    if missing_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Course(s) not found."
+            detail=f"Courses not found: {sorted(missing_ids)}.",
         )
 
     # create grades
