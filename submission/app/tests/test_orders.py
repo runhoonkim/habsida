@@ -52,7 +52,7 @@ def test_create_order_with_unknown_product_is_400(client, user_headers):
     [
         {"product_id": 1, "quantity": 0},        # quantity must be > 0
         {"product_id": 1, "quantity": -3},       # quantity must be > 0
-        {"product_id"},                          # missing quantity
+        {"product_id": 1},                          # missing quantity
         {"product_id": "abc", "quantity": 1},    # invalid product_id type
     ],
 )
@@ -65,7 +65,7 @@ def test_invalid_order_payload_is_422(client, user_headers, payload):
         headers=user_headers,
         json=payload,
     )
-    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 def test_get_missing_order_is_404(client, user_headers):
     """
@@ -73,9 +73,9 @@ def test_get_missing_order_is_404(client, user_headers):
     """
     resp = client.get(
         "/orders/9999",
-        header = user_headers
+        headers=user_headers
     )
-    assert resp.status_code == 422
+    assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 def test_cannot_view_another_users_order(
     client,
@@ -142,7 +142,7 @@ def test_patch_updates_only_sent_fields(client, user_headers, product):
             "quantity": 2,
         },
         headers=user_headers,
-    )
+    ).json()
     resp = client.patch(
         f"/orders/{order['id']}",
         json={"status": "shipped"},  # only updating the status
@@ -154,7 +154,7 @@ def test_patch_updates_only_sent_fields(client, user_headers, product):
 
 def test_customer_cannot_delete_order(client, user_headers, product):
     order = client.post(
-        "/order", 
+        "/orders", 
         json={
             "product_id": product.id,
             "quantity": 1,
