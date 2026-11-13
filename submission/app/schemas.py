@@ -65,7 +65,7 @@ class OrderStatus(str, Enum):
 class OrderCreate(BaseModel):
     # user_id will be added at the endpoint
     product_id: int
-    quantity: int = Field(default=1, gt=0)
+    quantity: int = Field(gt=0)
     # status will be added at the endpoint
 
 class OrderUpdate(BaseModel):
