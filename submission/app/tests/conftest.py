@@ -42,8 +42,10 @@ def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db  # Override the get_db dependency to use the test database session
-    with TestClient(app) as test_client:
-        yield test_client
+    # Testclient(app) creates a client that can send requests to your FastAPI application 
+    # without starting a separate server.
+    with TestClient(app) as test_client: 
+        yield test_client 
     app.dependency_overrides.clear()  # Clear overrides after the test
 
 def make_user(db_session, email, role="customer"):
