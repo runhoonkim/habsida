@@ -1,0 +1,2 @@
+2026-06-22 10:31:02 ERROR database connection refused
+2026-06-22 10:45:18 ERROR timeout while reading socket
