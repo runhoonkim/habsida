@@ -1,0 +1,6 @@
+2026-06-22 10:15:00 INFO server started
+2026-06-22 10:31:02 ERROR database connection refused
+2026-06-22 10:40:10 WARN slow request
+2026-06-22 10:45:18 ERROR timeout while reading socket
+2026-06-22 10:45:18 ERROR timeout while reading socket
+2026-06-22 10:50:00 INFO request completed
