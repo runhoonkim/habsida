@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .git/
+.gitignore
 .env
 .pytest_cache/
-*.md
+README.md
