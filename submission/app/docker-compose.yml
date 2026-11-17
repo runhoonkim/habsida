@@ -1,0 +1,18 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: orders
+    volumes:
+      - orders_data:/var/lib/postgresql/data
+
+  api:
+    build: .                 # build from the Dockerfile in this folder
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  orders_data:
