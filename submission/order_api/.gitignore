@@ -1,0 +1,15 @@
+# secrets
+.env
+
+# virtual environment
+venv/
+.venv/
+
+# cache
+__pycache__/
+*.pyc
+
+# junk files
+*.swp
+DS_Store
+
