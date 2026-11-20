@@ -19,7 +19,7 @@ A FastAPI service for user registration, JWT authentication, and order managemen
 3. Create `app/.env` with your local settings. These values are examples only:
 
    ```dotenv
-   DATABASE_URL=postgresql+psycopg://postgres:example_password@localhost:5432/store
+   DATABASE_URL=postgresql+psycopg://example_username:example_password@localhost:5432/store
    SECRET_KEY=replace_with_a_generated_random_secret
    ALGORITHM=HS256
    ```
