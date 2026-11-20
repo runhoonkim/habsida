@@ -5,6 +5,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    # instead of writing the environment variables directly in the docker-compose.yml file, 
+    # we can use an .env file to keep them separate and more secure. This is especially useful for sensitive information like passwords
+    env_file:
+      - .env 
     volumes:
       - orders_data:/var/lib/postgresql/data
     healthcheck:
