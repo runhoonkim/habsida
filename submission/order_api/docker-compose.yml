@@ -1,3 +1,5 @@
+name: app
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -24,6 +26,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
+    env_file:
+      - ./app/.env
     depends_on:
       db:
         condition: service_healthy
