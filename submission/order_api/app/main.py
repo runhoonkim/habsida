@@ -4,7 +4,7 @@ from fastapi.security import (
     OAuth2PasswordRequestForm,
 )
 from sqlalchemy.orm import Session
-from auth import (
+from .auth import (
     hash_password,
     verify_password, 
     create_access_token,
@@ -12,9 +12,9 @@ from auth import (
     create_refresh_token,
     decode_refresh_token
 )
-from database import get_db
-from models import User, Product, Order
-from schemas import (
+from .database import get_db
+from .models import User, Product, Order
+from .schemas import (
     TokenPairOut, AccessTokenOut, RefreshTokenRequest,
     UserCreate, UserOut,
     ProductOut,
