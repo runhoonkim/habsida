@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install dependencies first so this layer is cached
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout=120 --retries=5 -r requirements.txt
 
 # Copy the application code
 COPY ./app ./app
